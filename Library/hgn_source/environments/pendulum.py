@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 
-from environment import Environment, visualize_rollout
+from .environment import Environment, visualize_rollout
 
 
 class Pendulum(Environment):
