@@ -131,5 +131,4 @@ if __name__ == "__main__":
                                       color=True,
                                       seed=23)
     idx = np.random.randint(rolls.shape[0])
-    print(rolls[idx])
     visualize_rollout(rolls[idx])
