@@ -14,52 +14,69 @@ class HNN_mlp(nn.Module):
         super().__init__()
         self.layers = nn.Sequential(
             nn.Linear(input_dim, 64),
-            nn.ReLU(),
+            nn.Softplus(),
             nn.Linear(64, 64),
-            nn.ReLU(),
+            nn.Softplus(),
             nn.Linear(64, 32),
-            nn.ReLU(),
+            nn.Softplus(),
             nn.Linear(32, 1),
         )
 
-    def get_gradient(self, x, hnn):
+        # self.layers = nn.Sequential(
+        #     nn.Linear(input_dim, 8),
+        #     # nn.Softplus(),
+        #     nn.Linear(8, 8),
+        #     # nn.Softplus(),
+        #     nn.Linear(8, 4),
+        #     # nn.Softplus(),
+        #     nn.Linear(4, 1),
+        #     nn.Softplus(),
+        # )
+
+    def get_gradient(self, q, p, hnn):
         """
         Obtain position and momentum gradients for use in Euler step.
         """
 
+        # Combine inputs
+        # x = torch.concat((q, p))
+
         # Obtain position, momentum, and energy
-        energy = hnn(x)
+        energy = hnn(q, p)
         #print(energy)
 
         # Obtain Gradients of Energy
-        dh = torch.autograd.grad(energy, x, grad_outputs=torch.ones_like(energy))
-        #print(dh)
+        dh = torch.autograd.grad(energy, (q, p), create_graph=True, retain_graph=True, grad_outputs=torch.ones_like(energy))
+        #print("DH: {}".format(dh))
 
-        # Obtain Position gradient: dp/dt = -dH/dq
-        dp = -dh[0][1]
+        # Obtain Momentum gradient: dp/dt = -dH/dq
+        dp = -dh[1]
 
-        # Obtain Momentum gradient: dq/dt = dH/dp
-        dq = dh[0][0]
+        # Obtain Position gradient: dq/dt = dH/dp
+        dq = dh[0]
 
         # dp = torch.autograd.grad(energy, x, grad_outputs=torch.ones_like(energy), allow_unused=True)
         #dq = torch.autograd.grad(energy, p, grad_outputs=torch.ones_like(energy), allow_unused=True)
 
-        return dp, dq
+        return dq, dp
 
-    def euler_step(self, x, hnn):
+    def euler_step(self, q, p, dq, dp):
         """
         Computes successor position and momentum.
         """
+
+        # Combine inputs
+        # x = torch.concat((q.reshape(1), p.reshape(1)))
 
         # Define delta t:
         delta_t = 0.1
 
         # Define position and momentum
-        q = x[0]
-        p = x[1]
+        # q = x[0]
+        # p = x[1]
 
         # Get gradients
-        dp, dq = self.get_gradient(x, hnn)
+        # dp, dq = self.get_gradient(x, hnn)
 
         # Euler step
         p_successor = p + delta_t * dp
@@ -72,23 +89,27 @@ class HNN_mlp(nn.Module):
         Forward pass of the MLP.
         """
 
+        # Combine inputs
+        x = torch.concat((q.reshape(1), p.reshape(1)), dim=0)
+
         # Obtain energy
         energy = self.layers(x.float())
 
         # Perform Euler step
         # q_successor, p_successor = self.euler_step(x)
 
-
-        return self.layers(x.float())
+        return energy
 
 if __name__ == "__main__":
 
     input_data = torch.tensor(np.random.rand(2), requires_grad=True)
+    pos, mom = input_data[0].reshape(1), input_data[1].reshape(1)
+    print(pos, mom)
 
     hnn = HNN_mlp(2)
-    outputs = hnn(input_data)
+    outputs = hnn(pos, mom)
     print(input_data, outputs)
-    grad_outputs = hnn.get_gradient(input_data, hnn)
+    grad_outputs = hnn.get_gradient(pos, mom, hnn)
     print(input_data, grad_outputs)
 
 
