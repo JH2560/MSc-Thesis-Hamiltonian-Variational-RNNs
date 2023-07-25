@@ -179,9 +179,9 @@ class Environment(ABC):
             if noise_level > 0.:
                 self._rollout += np.random.randn(
                     *self._rollout.shape) * noise_level * self.get_max_noise_std()
-            #batch_sample.append(self._draw(img_size, color))
+            batch_sample.append(self._draw(img_size, color))
 
-        return self._rollout #np.array(batch_sample)
+        return self._rollout, np.array(batch_sample)
 
 
 def visualize_rollout(rollout, interval=50, show_step=False):

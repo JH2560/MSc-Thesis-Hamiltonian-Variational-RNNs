@@ -28,7 +28,7 @@ def get_data():
                                       noise_level=0.,
                                       radius_bound=(1.3, 2.3),
                                       color=True,
-                                      )
+                                      )[0]
         print(len(q))
         #print(q)
 

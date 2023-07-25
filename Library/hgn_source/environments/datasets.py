@@ -7,7 +7,7 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from utilities import conversions
+from ..utilities import conversions
 
 
 class EnvironmentSampler(Dataset):
@@ -86,7 +86,7 @@ class EnvironmentSampler(Dataset):
             color=self.color,
             noise_level=self.noise_level,
             radius_bound=self.radius_bound,
-            seed=self.seed)
+            seed=self.seed)[1]
         rolls = torch.from_numpy(rolls).type(self.dtype)
         return conversions.to_channels_first(rolls)
 

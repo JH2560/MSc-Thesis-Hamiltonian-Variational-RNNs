@@ -129,6 +129,7 @@ if __name__ == "__main__":
                                       noise_level=0.,
                                       radius_bound=(1.3, 2.3),
                                       color=True,
-                                      seed=23)
+                                      seed=23)[1]
     idx = np.random.randint(rolls.shape[0])
+    print(rolls[idx].shape)
     visualize_rollout(rolls[idx])
