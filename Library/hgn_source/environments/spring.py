@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+import matplotlib.pyplot as plt
 
 from .environment import Environment, visualize_rollout
 
@@ -132,6 +133,23 @@ if __name__ == "__main__":
                                       noise_level=0.,
                                       radius_bound=(.5, 1.4),
                                       color=True,
-                                      seed=None)
+                                      seed=32)[1]
     idx = np.random.randint(rolls.shape[0])
-    visualize_rollout(rolls[idx])
+    print(rolls[idx].shape)  # [10, 32, 32, 3]
+    #visualize_rollout(rolls[idx])
+
+    # Visualise frames
+    decoded_items = rolls[idx]
+
+    frames = [0, 4, 8, 12, 16, 20, 24, 28, 31]
+    display_item = []
+    for frame in frames:
+        display_item.append(decoded_items[frame])
+
+    plt.figure(figsize=(10, 10))
+    for i, x in enumerate(display_item):
+        plt.subplot(1, 9, i + 1)
+        plt.axis("off")
+        plt.title("Frame {}".format(i * 4))
+        plt.imshow(x)
+    plt.show()

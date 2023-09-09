@@ -8,6 +8,7 @@ from torchvision import transforms
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from ..utilities import conversions
+# from environment import Environment, visualize_rollout
 
 
 class EnvironmentSampler(Dataset):
@@ -108,46 +109,77 @@ class EnvironmentLoader(Dataset):
 # Sample code for DataLoader call
 if __name__ == "__main__":
     import time
-    from .pendulum import Pendulum
+    from pendulum import Pendulum
 
-    pd = Pendulum(mass=.5, length=1, g=3)
+    pd = Pendulum(mass=.5, length=1, g=3, black_img=True)
     trainDS = EnvironmentSampler(environment=pd,
-                                 dataset_len=100,
+                                 dataset_len=1,
                                  number_of_frames=100,
                                  delta_time=.1,
-                                 number_of_rollouts=4,
+                                 number_of_rollouts=1,
+                                 color=True,
                                  img_size=64,
                                  noise_level=0.,
-                                 radius_bound=(1.3, 2.3),
-                                 seed=23)
+                                 radius_bound=(0,0),
+                                 seed=None)
     # Dataloader instance test, batch_mode disabled
     train = torch.utils.data.DataLoader(trainDS,
                                         shuffle=False,
                                         batch_size=None)
-    start = time.time()
-    sample = next(iter(train))
-    end = time.time()
 
-    print(sample.size(), "Sampled in " + str(end - start) + " s")
+    # Create black tensor
+    black_tensor = torch.ones(100, 3, 64, 64) * 0.3176
 
-    # Dataloader instance test, batch_mode enabled
-    train = torch.utils.data.DataLoader(trainDS,
-                                        shuffle=False,
-                                        batch_size=4,
-                                        num_workers=1)
-    start = time.time()
-    sample = next(iter(train))
-    end = time.time()
+    base_data = next(iter(train))
+    print(id, base_data.shape)
+    x = torch.squeeze(base_data, dim=0)
+    black_tensor = x
+    print(id, x.shape, black_tensor.shape)
+    print(x, "\n", black_tensor, "\n")
+    print(torch.equal(x, black_tensor))
+    # print(x - black_tensor)
+    x = x.permute(0, 2, 3, 1)
+    visualize_rollout(x)
 
-    print(sample.size(), "Sampled in " + str(end - start) + " s")
 
-    trainDS = EnvironmentLoader('../datasets/pendulum_data/train')
+    # for id, batch in enumerate(train):
+    #
+    #     print(id, batch.shape)
+    #     x = torch.squeeze(batch, dim=0)
+    #     black_tensor = x
+    #     print(id, x.shape, black_tensor.shape)
+    #     print(x, "\n", black_tensor, "\n")
+    #     print(torch.equal(x, black_tensor))
+    #     # print(x - black_tensor)
+    #     x = x.permute(0, 2, 3, 1)
+    #     visualize_rollout(x)
+    #     # x = torch.squeeze(batch, dim=0) # [100, 1, 32, 32]
+    #     # print(x.shape)
 
-    train = torch.utils.data.DataLoader(trainDS,
-                                        shuffle=False,
-                                        batch_size=10,
-                                        num_workers=4)
-    start = time.time()
-    sample = next(iter(train))
-    end = time.time()
-    print(sample.size(), "Sampled in " + str(end - start) + " s")
+    # start = time.time()
+    # sample = next(iter(train))
+    # end = time.time()
+    #
+    # print(sample.size(), "Sampled in " + str(end - start) + " s")
+    #
+    # # Dataloader instance test, batch_mode enabled
+    # train = torch.utils.data.DataLoader(trainDS,
+    #                                     shuffle=False,
+    #                                     batch_size=4,
+    #                                     num_workers=1)
+    # start = time.time()
+    # sample = next(iter(train))
+    # end = time.time()
+    #
+    # print(sample.size(), "Sampled in " + str(end - start) + " s")
+    #
+    # trainDS = EnvironmentLoader('../datasets/pendulum_data/train')
+    #
+    # train = torch.utils.data.DataLoader(trainDS,
+    #                                     shuffle=False,
+    #                                     batch_size=10,
+    #                                     num_workers=4)
+    # start = time.time()
+    # sample = next(iter(train))
+    # end = time.time()
+    # print(sample.size(), "Sampled in " + str(end - start) + " s")

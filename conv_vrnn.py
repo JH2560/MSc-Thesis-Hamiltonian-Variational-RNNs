@@ -17,15 +17,15 @@ def get_data():
     pd = Pendulum(mass=0.5, length=1, g=3)
 
     trainDS = EnvironmentSampler(environment=pd,
-                                 dataset_len=30,
-                                 number_of_frames=100,
+                                 dataset_len=50,
+                                 number_of_frames=64,
                                  delta_time=.1,
                                  number_of_rollouts=1,
                                  img_size=32,
                                  color=False,
                                  noise_level=0.,
                                  radius_bound=(1.3, 2.3),
-                                 seed=23)
+                                 seed=None)
 
     # Dataloader instance test, batch_mode disabled
     train = torch.utils.data.DataLoader(trainDS,
@@ -34,7 +34,7 @@ def get_data():
 
     testDS = EnvironmentSampler(environment=pd,
                                  dataset_len=1,
-                                 number_of_frames=64,
+                                 number_of_frames=100,
                                  delta_time=.1,
                                  number_of_rollouts=1,
                                  img_size=32,
@@ -49,6 +49,20 @@ def get_data():
                                         batch_size=None)
 
     return train, test
+
+def input_data(sequence, window):
+    output = []
+    L = len(sequence)
+    # print(L)
+
+    for i in range(L - window):
+        win = sequence[i:i+window] # Grab values in window from i to i+window
+        label = sequence[i+window: i+window+1] # Grab last item of window + 1 -> Item we want to predict
+        # print(i)
+
+        output.append((win, label))  # Create batches of sequences of size = window
+
+    return output
 
 class ConvVRNN(nn.Module):
     def __init__(self, input_dim, hidden_dim=128, latent_dim=128):
@@ -169,8 +183,8 @@ class ConvVRNN(nn.Module):
 
         # x = x.split(1, dim=1)
         # print(x.shape)
-        x_in = x[:-1]    # [99, 1, 32, 32]
-        x_label = x[-1] # [1, 32, 32]
+        # x_in = x[:-1]    # [99, 1, 32, 32]
+        # x_label = x[-1] # [1, 32, 32]
         # print(x_in.shape, x_label.shape)
         # x = x.view(-1, 1)
         # print(x.shape)
@@ -182,7 +196,7 @@ class ConvVRNN(nn.Module):
 
         # Obtain X
         # print("pre x", x.shape)
-        x = self.psi_x(x_in)
+        x = self.psi_x(x)
         x = x.reshape(-1, 128 * 32 * 32)
         # print("post x", x.shape)
 
@@ -227,7 +241,7 @@ class ConvVRNN(nn.Module):
         # print("HCell", x.shape, z_t.shape, torch.cat([x,z_t], dim=1).shape, h_t.shape)
         h_next = self.gru(torch.cat([x,z_t], dim=1), h_t)
 
-        return prediction, x_label, h_next, z_prior, z_inferred, prior_mean, prior_logvar, enc_mean, enc_logvar
+        return prediction, h_next, z_prior, z_inferred, prior_mean, prior_logvar, enc_mean, enc_logvar
 
 
 def loss_function(x, x_reconstructed, prior_mean, prior_logvar, enc_mean, enc_logvar):
@@ -254,7 +268,7 @@ def loss_function(x, x_reconstructed, prior_mean, prior_logvar, enc_mean, enc_lo
 
     return loss
 
-def conv_vrnn_train():
+def conv_vrnn_train(future=0):
 
     # Create dataset
     trainloader, testloader = get_data()
@@ -267,15 +281,17 @@ def conv_vrnn_train():
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
     outputs = dict()
+    gen_outputs = dict()
     # hidden_states = []
-    h_0 = torch.zeros(99, model.hidden_dim, dtype=torch.float32).to(device) # Batch size x Hidden dim
+    h_0 = torch.zeros(64, model.hidden_dim, dtype=torch.float32).to(device) # Batch size x Hidden dim
     # hidden_states.append(h_0)
     # print(hidden_states)
 
     # Training Loop
     print("Commencing training loop")
     training_loss = []
-    for epoch in range(10):
+    generate_loss = []
+    for epoch in range(4):
         # print(epoch)
         running_loss = 0
 
@@ -288,57 +304,82 @@ def conv_vrnn_train():
             x = torch.squeeze(batch, dim=0).to(device) # [100, 1, 32, 32]
             # print(x.shape)
 
-            optimizer.zero_grad()
-            pred, x_label, h_next, z_prior, z_inferred, prior_mean, prior_logvar, enc_mean, enc_logvar = model(x, h_0)
-            # print(x.shape, x_out.shape)
+            input_dic = input_data(x, 20)
+            # print(len(input_dic)) # Len = 64 - 20 = 44
 
-            # Update hidden
-            h_0 = h_next.detach()
-            # h_0 = h_t
-            # print(h_0)
+            for seq, y_train in input_dic:
+                #print("seq", seq.shape)
+                seq = seq.to(device)
+                y_train = torch.squeeze(y_train, dim=0).to(device)
 
-            loss = loss_function(x_label, pred, prior_mean, prior_logvar, enc_mean, enc_logvar)
-            # print("loss", loss)
+                optimizer.zero_grad()
+                pred, h_next, z_prior, z_inferred, prior_mean, prior_logvar, enc_mean, enc_logvar = model(seq, h_0)
+                #print("predshape", pred.shape)
 
-            running_loss += loss
+                # Update hidden
+                h_0 = h_next.detach()
+                # h_0 = h_t
+                # print(h_0)
 
-            loss.backward()
-            # nn.utils.clip_grad_norm_(model.parameters(), 1e-3)
-            optimizer.step()
+                loss = loss_function(y_train, pred, prior_mean, prior_logvar, enc_mean, enc_logvar)
+                # print("loss", loss)
 
+                running_loss += loss
 
-
-            # for name, param in model.named_parameters():
-            #     try:
-            #         print(name, param.grad.norm())
-            #     except:
-            #         print(name)
-
-            # for p, n in zip(model.parameters(), model._all_weights[0]):
-            #     if n[:6] == 'weight':
-            #         print('===========\ngradient:{}\n----------\n{}'.format(n, p.grad))
-
-        # optimizer.zero_grad()
-        #
-        # outputs, enc_mean, enc_logvar = model(train_input)
-        #
-        # loss = loss_function(train_target, outputs, enc_mean, enc_logvar)
-        # print("loss", loss.item())
-
-        #running_loss += loss
+                loss.backward()
+                # nn.utils.clip_grad_norm_(model.parameters(), 1e-3)
+                optimizer.step()
 
         outputs[epoch + 1] = {'x_in': x, 'out': pred}
 
         print("\tEpoch", epoch + 1, "complete!", "\tAverage Loss: ", running_loss / 100)
         training_loss.append(running_loss.cpu().detach().numpy())
 
+        # Predict Future
+        for id, pred_data in enumerate(testloader):
+            # print(id, pred_data.shape)
+            pred_data = torch.squeeze(pred_data, dim=0).to(device)  # [100, 1, 32, 32]
+            pred_in = pred_data[:-future]  # [100-future, 1, 32, 32]
+            # print("pred_in", pred_in.shape)
+            # x_label = x[-1]  # [1, 32, 32]
+            for f in range(future):
+                input_seq = pred_in[-future:]
+                # print("in_seq", input_seq.shape)
+                with torch.no_grad():
+                    h_0_fut = torch.zeros(20, model.hidden_dim, dtype=torch.float32).to(device)  # Batch size x Hidden dim
+
+                    pred, h_next, z_prior, z_inferred, prior_mean, prior_logvar, enc_mean, enc_logvar = model(input_seq, h_0_fut)
+
+                    # Update hidden
+                    # h_0_fut = h_next.detach()
+
+                    # Append predicted image to pred_in
+                    pred = pred[None, :] # [1, 1, 32, 32]
+                    # print("pred", pred.shape)
+                    pred_in = torch.cat((pred_in, pred), dim=0)
+                    # print("pred_out", pred_in.shape)
+
+        gen_outputs[epoch + 1] = {'pred_in': pred_data[-future:], 'out': pred_in[-40:]}
+
+        # print("final_pred", pred_in.shape) # [100, 1, 32, 32]
+        gen_loss = loss_function(pred_data[-future:], pred_in[-future:], prior_mean, prior_logvar, enc_mean, enc_logvar)
+        print("\tGen Loss: ", gen_loss)
+        generate_loss.append(gen_loss.cpu().detach().numpy())
+
+
     # Plotting the training loss
-    plt.plot(range(1, 10 + 1), training_loss)
+    plt.plot(range(1, 4 + 1), training_loss)
     plt.xlabel("Number of epochs")
     plt.ylabel("Training Loss")
     plt.show()
 
-    return outputs # x, x_out
+    # Plotting the gen loss
+    plt.plot(range(1, 4 + 1), generate_loss)
+    plt.xlabel("Number of epochs")
+    plt.ylabel("Gen Loss")
+    plt.show()
+
+    return outputs, gen_outputs # x, x_out
 
 def show_image(x, idx=0):
     x = x.view(100, 32, 32)
@@ -360,17 +401,28 @@ if __name__ == "__main__":
         device = torch.device("cpu")
     print(f'Using {device}')
 
-    outputs = conv_vrnn_train()
-    imgs = outputs[10]["out"].cpu()
-    # print("outputs", imgs.shape)  # [100, 1, 32, 32]
-    # imgs = imgs.permute(0, 2, 3, 1)
-    # print("permuted outputs", imgs.shape)  # [100, 32, 32, 1]
-    imgs = imgs.detach().numpy()
-    visualize_rollout(imgs)
+    outputs, gen_outputs = conv_vrnn_train(future=20)
+    # imgs = outputs[10]["out"].cpu()
+    # # print("outputs", imgs.shape)  # [100, 1, 32, 32]
+    # # imgs = imgs.permute(0, 2, 3, 1)
+    # # print("permuted outputs", imgs.shape)  # [100, 32, 32, 1]
+    # imgs = imgs.detach().numpy()
+    # visualize_rollout(imgs)
+    #
+    # real = outputs[10]["x_in"].cpu()
+    # real = real.permute(0, 2, 3, 1).detach().numpy()
+    # visualize_rollout(real)
 
-    real = outputs[10]["x_in"].cpu()
-    real = real.permute(0, 2, 3, 1).detach().numpy()
-    visualize_rollout(real)
+    gen_imgs = gen_outputs[10]["out"].cpu()
+    # print("outputs", gen_imgs.shape)  # [100, 1, 32, 32]
+    gen_imgs = gen_imgs.permute(0, 2, 3, 1)
+    # print("permuted outputs", imgs.shape)  # [100, 32, 32, 1]
+    gen_imgs = gen_imgs.detach().numpy()
+    visualize_rollout(gen_imgs)
+
+    gen_real = gen_outputs[10]["pred_in"].cpu()
+    gen_real = gen_real.permute(0, 2, 3, 1).detach().numpy()
+    visualize_rollout(gen_real)
 
     # x, x_hat = conv_vrnn_train()
     #

@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+import matplotlib.pyplot as plt
 
 from .environment import Environment, visualize_rollout
 
@@ -15,7 +16,7 @@ class Pendulum(Environment):
 
     WORLD_SIZE = 2.
 
-    def __init__(self, mass, length, g, q=None, p=None):
+    def __init__(self, mass, length, g, q=None, p=None, black_img=False):
         """Constructor for pendulum system
 
         Args:
@@ -29,7 +30,7 @@ class Pendulum(Environment):
         self.mass = mass
         self.length = length
         self.g = g
-        super().__init__(q=q, p=p)
+        super().__init__(q=q, p=p, black_img=black_img)
 
     def set(self, q, p):
         """Sets initial conditions for pendulum
@@ -121,8 +122,8 @@ class Pendulum(Environment):
 # Sample code for sampling rollouts
 if __name__ == "__main__":
 
-    pd = Pendulum(mass=.5, length=1, g=3)
-    rolls = pd.sample_random_rollouts(number_of_frames=100,
+    pd = Pendulum(mass=.5, length=1, g=3, black_img=False)
+    rolls = pd.sample_random_rollouts(number_of_frames=32,
                                       delta_time=0.1,
                                       number_of_rollouts=16,
                                       img_size=32,
@@ -131,5 +132,51 @@ if __name__ == "__main__":
                                       color=True,
                                       seed=23)[1]
     idx = np.random.randint(rolls.shape[0])
-    print(rolls[idx].shape)
-    visualize_rollout(rolls[idx])
+    print(rolls[idx].shape) # [10, 32, 32, 3]
+    # visualize_rollout(rolls[idx])
+
+
+    # Visualise frames
+    # decoded_items = rolls[idx]
+    # print(decoded_items.shape)
+    #
+    # frames = [0, 4, 8, 12, 16, 20, 24, 28, 31]
+    # display_item = []
+    # for frame in frames:
+    #     display_item.append(decoded_items[frame])
+    #
+    # plt.figure(figsize=(10, 10))
+    # for i, x in enumerate(display_item):
+    #     plt.subplot(1, 9, i+1)
+    #     plt.axis("off")
+    #     plt.title("Frame {}".format(i*4))
+    #     plt.imshow(x)
+    # plt.show()
+    def get_frames(sequence, n_steps=4):
+        """
+        Returns a visualisation showing every nth frame of the input rollout sequence.
+
+        Args:
+            sequence (Tensor): Tensor  of shape [Seq_len, Height, Width, Channels] representing the rollout sequence to be visualised.
+            n_steps (Integer): The number of steps between each frame capture.
+
+        """
+
+        if n_steps == 4:
+            frames = [0, 4, 8, 12, 16, 20, 24, 28, 31]
+
+        # Obtain required frames
+        display_item = []
+        for frame in frames:
+            display_item.append(sequence[frame])
+
+        # Plot frames
+        plt.figure(figsize=(10, 10))
+        for i, x in enumerate(display_item):
+            plt.subplot(1, 9, i + 1)
+            plt.axis("off")
+            plt.title("Frame {}".format(i * 4))
+            plt.imshow(x)
+        plt.show()
+
+    get_frames(sequence=rolls[idx], n_steps=4)

@@ -8,16 +8,21 @@ from scipy.integrate import solve_ivp
 
 
 class Environment(ABC):
-    def __init__(self, q=None, p=None):
+    def __init__(self, q=None, p=None, black_img=False):
         """Instantiate new environment with the provided position and momentum
 
         Args:
             q ([float], optional): generalized position in n-d space
             p ([float], optional): generalized momentum in n-d space
         """
-        self._default_background_color = [81./255, 88./255, 93./255]
-        self._default_ball_colors = [
-            (173./255, 146./255, 0.), (173./255, 0., 0.), (0., 146./255, 0.)]
+
+        if black_img:
+            self._default_background_color = [81./255, 88./255, 93./255]
+            self._default_ball_colors = [(0,0,0), (0,0,0), (0,0,0)]
+        else:
+            self._default_background_color = [81./255, 88./255, 93./255]
+            self._default_ball_colors = [
+                (173./255, 146./255, 0.), (173./255, 0., 0.), (0., 146./255, 0.)]
         self._rollout = None
         self.q = None
         self.p = None
@@ -210,4 +215,8 @@ def visualize_rollout(rollout, interval=50, show_step=False):
                                     interval=interval,
                                     blit=True,
                                     repeat_delay=100)
+
+    writervideo = animation.FFMpegWriter(fps=60)
+    ani.save('visualise.mp4', writer=writervideo)
+
     plt.show()
