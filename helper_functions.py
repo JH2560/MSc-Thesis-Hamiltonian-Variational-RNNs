@@ -79,7 +79,7 @@ def get_pendulum_data():
     pd = Pendulum(mass=0.5, length=1, g=3)
 
     train_dataset = EnvironmentSampler(environment=pd,
-                                 dataset_len=10,
+                                 dataset_len=100,
                                  number_of_frames=32,
                                  delta_time=.1,
                                  number_of_rollouts=2,
