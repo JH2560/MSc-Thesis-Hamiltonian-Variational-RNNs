@@ -6,12 +6,13 @@ import matplotlib.pyplot as plt
 from Library.hgn_source.environments.datasets import EnvironmentSampler, EnvironmentLoader
 from Library.hgn_source.environments.pendulum import Pendulum
 from Library.hgn_source.environments.spring import Spring
+from Library.hgn_source.environments.gravity import NObjectGravity
 
 ################################
 # Data Loading and Processing
 ################################
 
-def get_pendulum_data():
+def get_spring_data():
     """
     Returns train and test dataloaders for the Spring dataset as a tuple.
     Note: This function makes use of functions from the open-source HGN repository.
@@ -28,7 +29,7 @@ def get_pendulum_data():
     sp = Spring(mass=.5, elastic_cst=2, damping_ratio=0.)
 
     train_dataset = EnvironmentSampler(environment=sp,
-                                 dataset_len=100, # 1500 = 40 mins  # 5000 = 1.5hrs
+                                 dataset_len=10,
                                  number_of_frames=32,
                                  delta_time=.1,
                                  number_of_rollouts=2,
@@ -36,7 +37,7 @@ def get_pendulum_data():
                                  color=True,
                                  noise_level=0.,
                                  radius_bound=(1.3, 2.3),
-                                 seed=32)  # Set as None = Random rollout each dataset. Note: Need at least 10000 to learn.
+                                 seed=32)
 
     # Dataloader instance test, batch_mode disabled
     train_loader = torch.utils.data.DataLoader(train_dataset,
@@ -45,7 +46,7 @@ def get_pendulum_data():
 
     test_dataset = EnvironmentSampler(environment=sp,
                                  dataset_len=1,
-                                 number_of_frames=50,
+                                 number_of_frames=32,
                                  delta_time=.1,
                                  number_of_rollouts=2,
                                  img_size=32,
@@ -61,7 +62,7 @@ def get_pendulum_data():
 
     return train_loader, test_loader
 
-def get_spring_data():
+def get_pendulum_data():
     """
     Returns train and test dataloaders for the Pendulum dataset as a tuple.
     Note: This function makes use of functions from the open-source HGN repository.
@@ -78,7 +79,7 @@ def get_spring_data():
     pd = Pendulum(mass=0.5, length=1, g=3)
 
     train_dataset = EnvironmentSampler(environment=pd,
-                                 dataset_len=100, # 1500 = 40 mins  # 5000 = 1.5hrs
+                                 dataset_len=10,
                                  number_of_frames=32,
                                  delta_time=.1,
                                  number_of_rollouts=2,
@@ -86,7 +87,7 @@ def get_spring_data():
                                  color=True,
                                  noise_level=0.,
                                  radius_bound=(1.3, 2.3),
-                                 seed=32)  # Set as None = Random rollout each dataset. Note: Need at least 10000 to learn.
+                                 seed=32)
 
     # Dataloader instance test, batch_mode disabled
     train_loader = torch.utils.data.DataLoader(train_dataset,
@@ -95,7 +96,57 @@ def get_spring_data():
 
     test_dataset = EnvironmentSampler(environment=pd,
                                  dataset_len=1,
-                                 number_of_frames=50,
+                                 number_of_frames=32,
+                                 delta_time=.1,
+                                 number_of_rollouts=2,
+                                 img_size=32,
+                                 color=True,
+                                 noise_level=0.,
+                                 radius_bound=(1.3, 2.3),
+                                 seed=32)
+
+    # Dataloader instance test, batch_mode disabled
+    test_loader = torch.utils.data.DataLoader(test_dataset,
+                                        shuffle=False,
+                                        batch_size=None)
+
+    return train_loader, test_loader
+
+def get_three_body_data():
+    """
+    Returns train and test dataloaders for the Three-body dataset as a tuple.
+    Note: This function makes use of functions from the open-source HGN repository.
+
+    Note 2: Setting "Seed" as "None" will generate random rollouts. To reproduce the test
+    rollout used in the presentation (and in the report), set "Seed = 32" or "Seed=23".
+
+    Returns:
+        train_loader (Dataloader): Train dataloader.
+        test_loader (Dataloader): Test dataloader.
+
+    """
+
+    og = NObjectGravity(mass=[1., 1., 1.], g=1., orbit_noise=0.05)
+
+    train_dataset = EnvironmentSampler(environment=og,
+                                 dataset_len=10,
+                                 number_of_frames=32,
+                                 delta_time=.1,
+                                 number_of_rollouts=2,
+                                 img_size=32,
+                                 color=True,
+                                 noise_level=0.,
+                                 radius_bound=(1.3, 2.3),
+                                 seed=32)
+
+    # Dataloader instance test, batch_mode disabled
+    train_loader = torch.utils.data.DataLoader(train_dataset,
+                                        shuffle=False,
+                                        batch_size=None)
+
+    test_dataset = EnvironmentSampler(environment=og,
+                                 dataset_len=1,
+                                 number_of_frames=32,
                                  delta_time=.1,
                                  number_of_rollouts=2,
                                  img_size=32,
@@ -134,6 +185,29 @@ def concatenate_input(x):
     reshaped_x = x.reshape((batch, seq_len * channels, h, w))
 
     return reshaped_x
+
+def make_imputed_data(input):
+    """
+    Replaces frames 4-8 of the input sequence with "Black" frames.
+
+    Args:
+        input (Tensor): Tensor of shape [batch_size, seq_len, height, width, channels] representing the input data.
+
+
+    Returns:
+        imputed_input (Tensor): Tensor of shape [batch_size, seq_len, height, width, channels] representing the imputed input data.
+
+    """
+
+    background_color = torch.Tensor([81./255, 88./255, 93./255])
+    blank_frame = torch.ones((32, 32, 3))
+
+    black_frame = torch.mul(blank_frame, background_color)
+
+    imputed_input = input.detach()
+    imputed_input[:, 3:6, :] = black_frame
+
+    return imputed_input
 
 ################################
 # Loss Functions
@@ -284,6 +358,8 @@ def get_frames(sequence, n_steps = 27):
         frames = [0, 4, 8, 12, 16, 20, 24, 26]
     elif n_steps == 45:
         frames = [0, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44]
+    elif n_steps == "every":
+        frames = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18]
 
     # Obtain required frames
     display_item = []
@@ -299,3 +375,21 @@ def get_frames(sequence, n_steps = 27):
         plt.title("Frame {}".format(frames[i]))
         plt.imshow(x)
     plt.show()
+
+def visualize_test(test_losses):
+    """
+    Returns a visualisation showing plot of losses against time steps.
+
+    Args:
+        test_losses (List): A list of losses.
+
+    """
+
+    with torch.no_grad():
+        x_vals = [i for i in range(len(test_losses))]
+        plt.plot(x_vals, test_losses)
+        plt.xlabel("Forecast Step")
+        plt.ylabel("MSE Loss")
+        plt.xlim(0, len(x_vals))
+        plt.ylim(bottom=0)
+        plt.show()

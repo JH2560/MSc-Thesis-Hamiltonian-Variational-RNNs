@@ -2,6 +2,9 @@ import warnings
 
 import cv2
 import numpy as np
+import torch.nn as nn
+import torch
+import matplotlib.pyplot as plt
 
 from .environment import Environment, visualize_rollout
 
@@ -222,11 +225,11 @@ if __name__ == "__main__":
     og = NObjectGravity(mass=[1., 1., 1.],
                         g=1., orbit_noise=0.05)
     rolls = og.sample_random_rollouts(number_of_frames=32,
-                                      delta_time=0.125,
+                                      delta_time=0.1,
                                       number_of_rollouts=1,
                                       img_size=32,
                                       noise_level=0.,
-                                      radius_bound=(.5, 1.5),
-                                      seed=23)[1]
+                                      radius_bound=(1.3, 2.3),
+                                      seed=32)[1]
     idx = np.random.randint(rolls.shape[0])
     visualize_rollout(rolls[idx])

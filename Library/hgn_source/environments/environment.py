@@ -216,7 +216,11 @@ def visualize_rollout(rollout, interval=50, show_step=False):
                                     blit=True,
                                     repeat_delay=100)
 
-    writervideo = animation.FFMpegWriter(fps=60)
-    ani.save('visualise.mp4', writer=writervideo)
+    ################################################
+    # Code to save videos to computer
+    ################################################
+    # writervideo = animation.FFMpegWriter(fps=60)
+    # ani.save('visualise.mp4', writer=writervideo)
+    ################################################
 
     plt.show()

@@ -1,9 +1,10 @@
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+import torch.nn as nn
+import torch
 
 from .environment import Environment, visualize_rollout
-
 
 class Spring(Environment):
     """Damped spring System
@@ -126,30 +127,14 @@ class Spring(Environment):
 if __name__ == "__main__":
 
     sp = Spring(mass=.5, elastic_cst=2, damping_ratio=0.)
-    rolls = sp.sample_random_rollouts(number_of_frames=100,
+    rolls = sp.sample_random_rollouts(number_of_frames=20,
                                       delta_time=0.1,
-                                      number_of_rollouts=16,
+                                      number_of_rollouts=2,
                                       img_size=32,
                                       noise_level=0.,
-                                      radius_bound=(.5, 1.4),
+                                      radius_bound=(1.3, 2.3),
                                       color=True,
                                       seed=32)[1]
     idx = np.random.randint(rolls.shape[0])
     print(rolls[idx].shape)  # [10, 32, 32, 3]
-    #visualize_rollout(rolls[idx])
-
-    # Visualise frames
-    decoded_items = rolls[idx]
-
-    frames = [0, 4, 8, 12, 16, 20, 24, 28, 31]
-    display_item = []
-    for frame in frames:
-        display_item.append(decoded_items[frame])
-
-    plt.figure(figsize=(10, 10))
-    for i, x in enumerate(display_item):
-        plt.subplot(1, 9, i + 1)
-        plt.axis("off")
-        plt.title("Frame {}".format(i * 4))
-        plt.imshow(x)
-    plt.show()
+    visualize_rollout(rolls[idx])
