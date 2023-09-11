@@ -3,7 +3,7 @@ This repo contains the code associated with the MSc Individual Project titled "H
 The structure of this repo is as follows:
 - train_hvrnn.py contains the code required to train the HVRNN.
 - train_vrnn.py contains the code required to train the VRNN.
-- -hnn_model.py contains the code for the HNN.
+- hnn_model.py contains the code for the HNN.
 - helper_functions.py contains a set of globally used functions (e.g., loss calculations)
 - The Library folder contains the code from the repo "Hamiltonian-Generative-Networks", by Canal et al. Minor adjustments have been made to some files to integrate with our own files (e.g., path changes).
 
